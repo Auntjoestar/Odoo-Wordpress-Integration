@@ -17,7 +17,7 @@ services:
       - phpmyadmin
     restart: always
     ports:
-      - 8080:80
+      - 8000:80
 
   db:
     image: mariadb:latest
@@ -28,11 +28,48 @@ services:
       - ./dump.sql:/docker-entrypoint-initdb.d/dump.sql
       # # #
     environment:
-      - MYSQL_ROOT_PASSWORD=password
-      - MYSQL_USER=root
-      - MYSQL_PASSWORD=password
-      - MYSQL_DATABASE=wordpress
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-password}
+      - MYSQL_USER=${MYSQL_USER:-root}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-password}
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-wordpress}
     restart: always
+
+  odoo:
+    image: odoo:17.0
+    depends_on:
+      - odoo_db
+    ports:
+      - ${ODOO_PORT:-8069}:8069
+    volumes:
+      - odoo-web-data:/var/lib/odoo
+      - ./config:/etc/odoo
+      - ./addons:/mnt/extra-addons
+    environment:
+      - HOST=odoo_db
+      - PASSWORD_FILE=/run/secrets/postgresql_password
+    secrets:
+      - postgresql_password
+      - admin_master_password
+
+  odoo_db:
+    image: postgres:15
+    container_name: odoo_db
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-postgres}
+      - POSTGRES_PASSWORD_FILE=/run/secrets/postgresql_password
+      - POSTGRES_USER=odoo
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - odoo-db-data:/var/lib/postgresql/data/pgdata
+    secrets:
+      - postgresql_password
+      - admin_master_password
+
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - "${ADMINER_PORT:-8080}:8080"
 
   phpmyadmin:
     depends_on:
@@ -43,8 +80,16 @@ services:
     ports:
       - 8180:80
     environment:
-      PMA_HOST: db
-      MYSQL_ROOT_PASSWORD: password
+      PMA_HOST: ${PMA_HOST:-db}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-password}
 
 volumes:
   db_data:
+  odoo-web-data:
+  odoo-db-data:
+
+secrets:
+  postgresql_password:
+    file: odoo_pg_pass
+  admin_master_password:
+    file: odoo_admin_pass

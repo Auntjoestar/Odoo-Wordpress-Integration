@@ -1,0 +1,4 @@
+.env.local
+pass.txt
+odoo_admin_pass
+odoo_pg_pass
